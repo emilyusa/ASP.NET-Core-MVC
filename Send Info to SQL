@@ -1,0 +1,105 @@
+%--Insert records to SQL--%%
+
+1.Setup appsettings.json
+ "ConnectionStrings": {
+    "MyConnString": "Server=<yourServerHere>; Database=PROG123DB; User Id=PROG123_User; Password=abc123;"
+  }
+  
+2.Enable Configuration in Startup.cs and included in HomeController
+ public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+ public IConfiguration Configuration { get; } //Startup.cs
+ 
+ using Microsoft.Extensions.Configuration;//HomeController.cs
+ 
+ 3.Insert a record to SQL
+ //DALPerson.cs
+         public string InsertPerson(Person person)
+        {
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "INSERT INTO [dbo].[Person]([FName],[LName],[email],[phone],[address],[UserName]) " +
+                " VALUES( @FName, @LName, @email, @phone, @address, @UserName) select SCOPE_IDENTITY() as PersonID; ";
+
+            SqlCommand cmd = new SqlCommand(query, conn);
+
+            cmd.Parameters.AddWithValue("@FName", person.FirstName);
+            cmd.Parameters.AddWithValue("@LName", person.LastName);
+            cmd.Parameters.AddWithValue("@email", person.Email);
+            cmd.Parameters.AddWithValue("@phone", person.Phone);
+            cmd.Parameters.AddWithValue("@address", person.Address);
+            cmd.Parameters.AddWithValue("@UserName", person.Username);
+
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();
+            reader.Read();
+            string personID = reader[0].ToString();
+
+            // step 4 - close the connection
+            conn.Close();
+            
+            return personID;
+        }
+        
+4.Create a view in View/Home/Index.cshtml
+@{
+    Layout = null;
+}
+@model Li_Chunyan.Models.Person
+
+<!doctype html>
+
+<html>
+<head>
+</head>
+<body>
+    <h1>Personal Information Form</h1>
+    <br />
+
+    <form asp-action="Page2" method="post">
+
+        <label>First Name </label><input asp-for="FirstName" />
+        <br />
+        <label>Last Name </label><input asp-for="LastName" />
+        <br />
+        <label>Email </label><input asp-for="Email" />
+        <br />
+        <label>Phone </label><input asp-for="Phone" />
+        <br />
+        <label>Address </label><input asp-for="Address" />
+        <br />
+        <label>Username </label><input asp-for="Username" />
+        <br />
+        <label>Password </label><input asp-for="Password" />
+        <br />
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>
+
+5.Create a class in Models/Person.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Li_Chunyan.Models
+{
+    public class Person
+    {
+        public string FirstName { get; set; }
+        public string LastName{ get; set; }
+        public string Email { get; set; }
+        public string Phone { get; set; }
+        public string Address { get; set; }
+        public string PersonID { get; set; }
+        public string Username { get; set; }
+        public string Password { get; set; }
+    }
+}
