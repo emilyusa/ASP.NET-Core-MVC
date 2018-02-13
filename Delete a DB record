@@ -1,0 +1,76 @@
+%--Delete a record in SQL--%
+
+1.Add Delete in DALPerson.cs
+internal Person deletePerson(int uID)
+        {
+            Person person = new Person();
+
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+            // step 2 - create a command
+            string query = "Delete FROM [dbo].[Credentials] WHERE PersonID=@PersonID";
+            SqlCommand cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@PersonID", uID.ToString());
+            // step 3 - execute the query
+            cmd.ExecuteNonQuery();
+            //step 4 reset the command
+            query = "Delete FROM [dbo].[Person] WHERE PersonID=@PersonID2";
+            cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@PersonID2", uID.ToString());
+            // step 5 - execute the query again
+            cmd.ExecuteNonQuery();
+            
+            // step 6 - close the connection
+            conn.Close();
+
+            return person;
+        }
+     
+2.Creat a view in DeletePerson.cshtml
+@model Li_Chunyan.Models.Person
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>DeletePerson</title>
+</head>
+<body>
+    <h1>Delete Person Info</h1>
+    <br />
+    Name:@Model.FirstName &nbsp; @Model.LastName
+    <br />
+    Email:@Model.Email
+    <br />
+    Phone:@Model.Phone
+    <br />
+    Address:@Model.Address
+    <br />
+    Username:@Model.Username
+    <br />
+</body>
+</html>
+
+3.Add a link to Page2 view
+  <a href="@Url.Action("DeletePerson","Home")">Delete my info</a>
+
+4.Add DeletePerson action in HomeController.cs
+  public IActionResult DeletePerson()
+        {
+            //get uID from the session
+            int uID = Convert.ToInt32(HttpContext.Session.GetString("uID"));
+            //get the person
+            DALPerson dp = new DALPerson(configuration);
+            Person person = dp.getPerson(uID);
+
+            dp.deletePerson(uID);
+
+            return View(person);
+        }
+        
