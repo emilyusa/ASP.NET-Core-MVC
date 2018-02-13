@@ -1,0 +1,266 @@
+%--Build the second controller and Select a DB record with Inner Join--%
+
+1.Change Startup.cs
+app.UseMvc(routes =>
+            {
+                routes.MapRoute(
+                    name: "default",
+                    template: "{controller=Chunyan}/{action=Index}/{id?}");
+            }
+            
+2.Create the second controller
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;//add session
+using Microsoft.Extensions.Configuration;
+using Li_Chunyan.DAL;
+using Li_Chunyan.Models;
+using System.Data.SqlClient;
+
+
+namespace Li_Chunyan.Controllers
+{
+    public class ChunyanController : Controller
+    {
+        private readonly IConfiguration configuration;
+        
+
+        public ChunyanController(IConfiguration config)
+        {
+
+            this.configuration = config;
+        }
+
+        // GET: /<controller>/
+        public IActionResult Index()
+        {
+            ViewBag.ShowLogInForm = true;
+            
+            return View();
+        }
+
+        public IActionResult LoggedIn()
+        {
+            return View();
+        }
+
+        public IActionResult LogIn(LogInCredentials lic)
+        {
+            DALPerson dp = new DALPerson(configuration);
+            PersonShort ps = dp.CheckLogInCredentials(lic);
+            
+            if (ps == null)
+            {
+                ViewBag.ShowLogInForm = true;
+                ViewBag.LoginMessage = "login failed";
+                return View("Index");
+            }
+            else
+            {
+                HttpContext.Session.SetString("uID", ps.PersonID);
+                HttpContext.Session.SetString("uFName", ps.FName);
+                ViewBag.UserFirstName = ps.FName;
+                return View("LoggedIn");
+            }
+           
+        }
+    }
+}
+
+3.Add CheckLogInCredentials
+//DALPerson.cs
+        internal PersonShort CheckLogInCredentials(LogInCredentials lic)
+        {
+            PersonShort ps = new PersonShort();
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+            //Step #2
+            string query = "SELECT [dbo].[Person].PersonID, [dbo].[Person].FName from [dbo].[Person] " +
+                "inner join [dbo].[Credentials] on [dbo].[Person].PersonID= [dbo].[Credentials].PersonID " +
+                "where [dbo].[Person].UserName= @UserName AND [dbo].[Credentials].Password= @Password;";
+            SqlCommand cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@UserName", lic.UserName);
+            cmd.Parameters.AddWithValue("@Password", lic.UserPassword);
+            //Step #3
+            SqlDataReader reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                //PersonShort ps = new PersonShort();
+                ps.PersonID = reader["PersonID"].ToString();
+                ps.FName = reader["FName"].ToString();
+                return ps;
+            }
+
+            // step 4 - close the connection
+            conn.Close();
+
+            return null;
+        }
+        
+4.Create a layout
+//_ChunyanLayout.cshtml
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>@ViewBag.Title</title>
+    <link href="~/css/ChunyanCSS.css" rel="stylesheet" />
+</head>
+<body>
+    <header>
+        <img src="~/images/header.png">
+        
+        <p id="headerText">Welcome @ViewBag.UserFirstName</p>
+    
+    </header>
+
+    <div id="content">
+        <article>
+            @RenderBody()
+            <p id="alert">@ViewBag.LoginMessage</p>
+        </article>
+    </div>
+
+    <nav>
+        <ul>
+            <li>Home</li>
+            <li>Shopping</li>
+            <li>Retailer</li>
+            <li>Refund</li>
+            <li>About</li>
+            <li><a href="@Url.Action("Index","Home")">SignUp</a></li>
+         </ul>
+       
+   </nav>
+
+    <footer>
+        -Contact    -Twitter    -Facebook     -LinkedIn
+        </footer>
+</body>
+</html>
+
+5.Create a folder named the same as new controller's name and create index.cshtml view
+//Views/Chunyan/Index.cshtml
+@{
+    ViewData["Title"] = "Index";
+    Layout = "~/Views/Shared/_ChunyanLayout.cshtml";
+}
+
+@model Li_Chunyan.Models.LogInCredentials
+
+<form asp-action="LogIn" method="post">
+
+    <label>Username </label><input asp-for="UserName" />
+    <br />
+    <label>Password </label><input asp-for="UserPassword" />
+    <br />
+    <button type="submit">LogIn</button>
+</form>
+
+6.Create a view of logged in
+
+@{
+    ViewData["Title"] = "LoggedIn";
+    Layout = "~/Views/Shared/_ChunyanLayout.cshtml";
+}
+
+<h2>Logged In</h2>
+
+7.Create ChunyanCSS.css in wwwroot/css 
+header {
+    height: 105px;
+    width: 1300px;
+    text-align: left;
+    border-radius: 10px;
+    
+}
+#headerText{
+    position:absolute;
+    top:40px;
+    left:10px;
+    font-size:2em;
+}
+#content {
+    margin-top:5px;
+    float: right;
+    background-color: lightgray;
+    width: 1100px;
+    text-align: center;
+    height: 300px;
+    border-radius: 10px;
+}
+
+article {
+    margin-top:20px;
+}
+
+#alert {
+    color:red;
+}
+
+nav {
+    float:left;
+    background-color:orange;
+    width:155px;
+    height:300px;
+    border-radius:10px;
+    margin-top:5px;
+    padding-left:5px;
+}
+
+footer {
+    border-radius:10px;
+    text-align: center;
+    height:30px;
+    width:100%;
+    background :#4cff00;
+    background-color:skyblue;
+    clear:both;
+}
+
+ul {
+    margin-top:10px;
+    padding-left:10px;
+    padding-top:20px;
+    list-style-type:none;
+}
+
+8.Add a banner image in images folder
+
+9.Create two models in Models folder
+//LogInCredentials.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Li_Chunyan.Models
+{
+    public class LogInCredentials
+    {
+        public string UserName { get; set; }
+        public string UserPassword { get; set; }
+    }
+}
+
+//PersonShort.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Li_Chunyan.Models
+{
+    public class PersonShort
+    {
+        public String FName { get; set; }
+        public String PersonID { get; set; }
+
+    }
+}
