@@ -1,0 +1,91 @@
+%--Update records in SQL--%
+
+1.Step1:Create a connection Step2:Create a query Step3:Query Step4:Close the connection
+//DALPerson.cs
+ public void UpdatePerson(Person person)
+        {
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "Update [dbo].[Person] SET [FName]=@FName,[LName]=@LName,[email]=@email,[phone]=@phone,[address]=@address,[UserName]=@UserName where PersonID=@PersonID;";
+
+            SqlCommand cmd = new SqlCommand(query, conn);
+
+            cmd.Parameters.AddWithValue("@FName", person.FirstName);
+            cmd.Parameters.AddWithValue("@LName", person.LastName);
+            cmd.Parameters.AddWithValue("@email", person.Email);
+            cmd.Parameters.AddWithValue("@phone", person.Phone);
+            cmd.Parameters.AddWithValue("@address", person.Address);
+            cmd.Parameters.AddWithValue("@UserName", person.Username);
+            cmd.Parameters.AddWithValue("@PersonID", person.PersonID);
+
+            // step 3 - execute the query
+            cmd.ExecuteNonQuery();
+
+            // step 4 - close the connection
+            conn.Close();           
+        }
+        
+2.Create EditPerson view
+@{
+    Layout = null;
+}
+@model Li_Chunyan.Models.Person
+
+<!doctype html>
+
+<html>
+<head>
+</head>
+<body>
+    <h1>Edit Person Info</h1>
+    <br />
+
+    <form asp-action="UpdatePerson" method="post">
+
+        <label>First Name </label><input asp-for="FirstName" value="@Model.FirstName" />
+        <br />
+        <label>Last Name </label><input asp-for="LastName" value="@Model.LastName"/>
+        <br />
+        <label>Email </label><input asp-for="Email" value="@Model.Email"/>
+        <br />
+        <label>Phone </label><input asp-for="Phone" value="@Model.Phone"/>
+        <br />
+        <label>Address </label><input asp-for="Address" value="@Model.Address"/>
+        <br />
+        <label>Username </label><input asp-for="Username" value="@Model.Username"/>
+        <br />
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>
+
+3.Add EditPerson and UpdatePerson actions
+//HomeController.cs
+      public IActionResult EditPerson()
+        {
+            //get uID from the session
+            int uID = Convert.ToInt32(HttpContext.Session.GetString("uID"));
+            //get the person
+            DALPerson dp = new DALPerson(configuration);
+            Person person = dp.getPerson(uID);
+
+            
+            return View(person);
+        }
+
+        public IActionResult UpdatePerson(Person person)
+        {
+            //get uID from the session
+            int uID = Convert.ToInt32(HttpContext.Session.GetString("uID"));
+            //get the person
+            DALPerson dp = new DALPerson(configuration);
+            person.PersonID = uID.ToString();
+            dp.UpdatePerson(person);            
+
+            return View("Page2",person);
+        }
+      
