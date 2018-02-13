@@ -1,0 +1,93 @@
+%--Session and read a record from SQL--%
+
+1. Add session to ConfigurationServices method
+services.AddDistributedMemoryCache();
+services.AddSession();
+
+2.Add session to Startup.cs
+app.UseSession();
+
+3.Enable to HomeController.cs and add session to Page2 action
+using Microsoft.AspNetCore.Http;
+public IActionResult Page2(Person person)
+        {
+            DALPerson dp = new DALPerson(configuration);
+            int uID=Convert.ToInt32(dp.InsertPerson(person));
+            person.PersonID=uID.ToString();
+            //save the uID to the session;
+            HttpContext.Session.SetString("uID", uID.ToString());
+            //read from session
+            string strUID = HttpContext.Session.GetString("uID");
+
+            return View(person);
+        }
+        
+4.Read a record from SQL
+//DALPerson.cs
+ public Person getPerson(int uID)
+        {
+            Person person = new Person();
+
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "SELECT [FName],[LName],[email],[phone],[address],[UserName]"
+                + "FROM [dbo].[Person] WHERE PersonID=@PersonID";
+            SqlCommand cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@PersonID", uID.ToString());
+
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();
+            reader.Read();
+
+            person.FirstName = reader["FName"].ToString();
+            person.LastName = reader["LName"].ToString();
+            person.Email = reader["email"].ToString();
+            person.Phone = reader["phone"].ToString();
+            person.Address = reader["address"].ToString();
+            person.Username = reader["UserName"].ToString();       
+            
+
+            // step 4 - close the connection
+            conn.Close();
+
+            return person;
+        }
+        
+5.Create Page2 view
+
+@{
+    Layout = null;
+}
+@model Li_Chunyan.Models.Person
+
+<!doctype html>
+
+<html>
+<head>
+</head>
+<body>
+
+    <h1>Person Information</h1>
+    <br />
+    @Model.FirstName
+    <br />
+    @Model.LastName
+    <br />
+    @Model.Email
+    <br />
+    @Model.Phone
+    <br />
+    @Model.Address
+    <br />
+    @Model.Username
+    <br />
+    @Model.Password
+    <br />
+   
+</body>
+</html>
+
