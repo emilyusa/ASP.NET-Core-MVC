@@ -1,0 +1,133 @@
+//ChunyanController.cs
+        public IActionResult AddNewProduct(LogInCredentials lic)
+        {
+            if (!this.IsUserLoggedIn())
+            {
+                ViewBag.ShowLogInForm = true;
+                ViewBag.LoginMessage = "User is not logged in";
+                return View("Index");
+            }
+                return View();
+           
+        }
+        
+        private bool IsUserLoggedIn()
+        {
+            return !string.IsNullOrEmpty(HttpContext.Session.GetString("uID"));
+        }
+
+        public IActionResult AddProductToDB(Product prod)
+        {
+            DALProduct p = new DALProduct(configuration);
+            int pID = Convert.ToInt32(p.AddProduct(prod));
+            prod.pID = pID;
+            return View(prod);
+        }
+ 
+ //DALProduct.cs
+        public string AddProduct(Product prod)
+        {
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "INSERT INTO [dbo].[Products]([Name],[Description],[Price],[InventoryAmount]) " +
+                " VALUES( @Name, @Description, @Price, @InventoryAmount) select SCOPE_IDENTITY() as pID; ";
+
+           
+           SqlCommand cmd = new SqlCommand(query, conn);
+
+            cmd.Parameters.AddWithValue("@Name", prod.Name);
+            cmd.Parameters.AddWithValue("@Description", prod.Description);
+            cmd.Parameters.AddWithValue("@Price", prod.Price);
+            cmd.Parameters.AddWithValue("@InventoryAmount", prod.InventoryAmount);
+           
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();
+            reader.Read();
+            string pID = reader[0].ToString();
+
+            // step 4 - close
+            conn.Close();
+
+            return pID;
+        }
+       
+//_ChunyanLayout.cshtml
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>@ViewBag.Title</title>
+    <link href="~/css/ChunyanCSS.css" rel="stylesheet" />
+</head>
+<body>
+    <header>
+        <img src="~/images/header.png">
+        
+        <p id="headerText">Welcome @ViewBag.UserFirstName</p>
+    
+    </header>
+
+    <div id="content">
+        <article>
+            @RenderBody()
+            <p id="alert">@ViewBag.LoginMessage</p>
+        </article>
+    </div>
+
+    <nav>
+        <ul>
+            <li>Home</li>
+            <li>Shopping</li>
+            <li>Retailer</li>
+            <li>Refund</li>
+            <li>About</li>
+            
+            <li><a href="@Url.Action("AddNewProduct", "Chunyan")">Add Product</a></li>
+           
+            <li><a href="@Url.Action("Index","Home")">SignUp</a></li>
+         </ul>
+       
+   </nav>
+
+    <footer>
+        -Contact    -Twitter    -Facebook     -LinkedIn
+        </footer>
+</body>
+</html>
+
+//AddNewProduct.cshtml  --View
+
+@{
+
+    Layout = "~/Views/Shared/_ChunyanLayout.cshtml";
+}
+@model Li_Chunyan.Models.Product
+
+<h2>AddNewProduct</h2>
+
+<div class="inputwrap">
+
+<form asp-action="AddProductToDB" method="post">
+
+    <label >Name</label><input class="roundCorners" asp-for="Name"/>
+    <br />
+    <label >Description</label><input class="roundCorners" asp-for="Description"/>
+    <br />
+    <label >Price</label><input class="roundCorners" asp-for="Price"/>
+    <br />
+    <label >InventoryAmount </label><input class="roundCorners" asp-for="InventoryAmount"/>
+    <br />
+    <br />
+    <button type="submit">Submit</button>
+
+
+</form>
+    </div>
+
+
+
