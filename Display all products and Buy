@@ -1,0 +1,395 @@
+//ChunyanController.cs
+       public IActionResult ShowAllProducts()
+        {
+            if (!this.IsUserLoggedIn())
+            {
+                ViewBag.ShowLogInForm = true;
+                ViewBag.LoginMessage = "User is not logged in";
+                return View("Index");
+            }
+
+            DALProduct dp = new DALProduct(configuration);
+            LinkedList<Product> allProds = dp.GetProduct();
+
+            return View(allProds);
+        }
+
+        public IActionResult OneClickBuy(string PID)
+        {
+            if (!this.IsUserLoggedIn())
+            {
+                ViewBag.ShowLogInForm = true;
+                ViewBag.LoginMessage = "User is not logged in";
+                return View("Index");
+            }
+            int PersonID = Convert.ToInt32(HttpContext.Session.GetString("uID"));
+
+            DALSalesTransaction dst = new DALSalesTransaction(configuration);
+            dst.RecordTransaction(Convert.ToInt32(PID), PersonID);
+
+            DALProduct dp = new DALProduct(configuration);
+            dp.DecreaseByOne(PID);
+
+            Product product = dp.GetAProduct(PID);
+            Person person = new DALPerson(configuration).getPerson(PersonID);
+
+            Purchase purchase = new Purchase();
+            purchase.PPerson = person;
+            purchase.PProduct = product; 
+
+            return View( purchase);
+        }
+        
+//DALProduct.cs
+       public LinkedList<Product> GetProduct()
+        {
+
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "SELECT * FROM [dbo].[Products]";
+            SqlCommand cmd = new SqlCommand(query, conn);
+
+
+            //Create a linkedlist
+            LinkedList<Product> prods = new LinkedList<Product>();
+
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                Product p = new Product();
+                p.Name = reader["Name"].ToString();
+                p.Description = reader["Description"].ToString();
+                p.pID = Convert.ToInt32(reader["PID"].ToString());
+                p.Price = float.Parse(reader["Price"].ToString());
+                p.InventoryAmount = Convert.ToInt32(reader["InventoryAmount"].ToString());
+
+                //add to the list
+                prods.AddLast(p);
+
+            }
+
+
+            // step 4 - close the connection
+            conn.Close();
+
+            return prods;
+        }
+
+        internal Product GetAProduct(string pID)
+        {
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "SELECT * FROM [dbo].[Products] where PID=@pID";
+            SqlCommand cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@pID", pID);
+
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();
+            reader.Read();
+
+           
+                Product p = new Product();
+                p.Name = reader["Name"].ToString();
+                p.Description = reader["Description"].ToString();
+                p.pID = Convert.ToInt32(reader["PID"].ToString());
+                p.Price = float.Parse(reader["Price"].ToString());
+                p.InventoryAmount = Convert.ToInt32(reader["InventoryAmount"].ToString());
+            //
+            conn.Close();
+
+            return p;
+            
+        }
+
+        internal void DecreaseByOne(string pID)
+        {
+            
+            Product p = new Product();
+
+            //Step #1 - Connect to the DB
+            string connStr = configuration.GetConnectionString("MyConnString");
+            SqlConnection conn = new SqlConnection(connStr);
+            conn.Open();
+
+            // step 2 - create a command
+            string query = "UPDATE [dbo].[Products] SET InventoryAmount =InventoryAmount-1 WHERE PID=@pID;";
+            SqlCommand cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@pID", pID);
+
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();           
+
+
+            // step 4 - close the connection
+            conn.Close();
+            
+        }
+
+    }
+}
+
+//DALSalesTransaction.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+using Li_Chunyan.Models;
+using System.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using System.Data;
+
+namespace Li_Chunyan.DAL
+{
+    public class DALSalesTransaction
+    {
+        private readonly IConfiguration configuration;
+        public DALSalesTransaction(IConfiguration config)
+        {
+            this.configuration = config;
+        }
+
+        public void RecordTransaction(int ProdID, int PersonID)
+        {
+                //Step #1 - Connect to the DB
+                string connStr = configuration.GetConnectionString("MyConnString");
+                SqlConnection conn = new SqlConnection(connStr);
+                conn.Open();
+
+            // step 2 - create a command
+            string query = "INSERT INTO[dbo].[SalesTransaction]([ProductID],[PersonID],[SalesDataTime],[PQuantity])" +
+                           "VALUES(@ProductID,@PersonID,@SalesDateTime,1) select SCOPE_IDENTITY() as SalesID;";
+
+
+                SqlCommand cmd = new SqlCommand(query, conn);
+
+                cmd.Parameters.AddWithValue("@ProductID", ProdID);
+                cmd.Parameters.AddWithValue("@PersonID", PersonID);
+                cmd.Parameters.AddWithValue("@SalesDateTime", DateTime.Now);
+
+
+            // step 3 - execute the query
+            SqlDataReader reader = cmd.ExecuteReader();
+            reader.Read();
+            int SalesID = Convert.ToInt32(reader[0].ToString());
+
+
+            //step4
+            conn.Close();
+           
+        }
+
+//Product.cs -Model
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Li_Chunyan.Models
+{
+    public class Product
+    {
+        public string Name { get; set; }
+
+        public string Description { get; set; }
+
+        public float Price { get; set; }
+
+        public int  pID { get; set; }
+
+        public int InventoryAmount { get; set; }
+    }
+}
+
+//Purchase.cs
+namespace Li_Chunyan.Models
+{
+    public class Purchase
+    {
+        public Person PPerson { get; set; }
+
+        public Product PProduct { get; set; }
+    }
+}
+
+//SalesTransaction.cs
+namespace Li_Chunyan.Models
+{
+    public class SalesTransaction
+    {
+        public string ProductID { get; set; }
+        public string PersonID { get; set; }
+        public int PQuantity { get; set; }
+        public DateTime SalesDateTime { get; set; }
+        
+    }
+}
+
+//AddProductToDB.cshtml
+
+@{
+
+    Layout = "~/Views/Shared/_ChunyanLayout.cshtml";
+}
+@model Li_Chunyan.Models.Product
+
+    
+<h2>AddProductToDB</h2>
+<div class="textshow">
+    <br />
+    Name:@Model.Name
+    <br />
+    Description:@Model.Description
+    <br />
+    Price:@Model.Price
+    <br />
+    InventoryAmount:@Model.InventoryAmount
+    <br />
+    pID:@Model.pID
+    <br />
+   
+</div>    
+    <br />
+    <a href="@Url.Action("AddNewProduct","Chunyan")">Enter a new product</a>
+
+//ShowAllProduct.cshtml
+
+@{
+
+    Layout = "~/Views/Shared/_ChunyanLayout.cshtml";
+}
+@model LinkedList<Li_Chunyan.Models.Product>
+
+<h2>ShowAllProducts</h2>
+<div class="inputwrap">
+    <label>Name</label>
+    <label style="width:120px;">Description</label>
+    <label>Price</label>
+    <label>PID</label>
+    <label>Inventory</label>
+</div>
+
+@foreach (Li_Chunyan.Models.Product prod in Model)
+{
+    <div class="inputwrap">
+        <label>@prod.Name</label>
+        <label style="width:120px;">@prod.Description</label>
+        <label>@prod.Price</label>
+        <label>@prod.pID</label>
+        <label>@prod.InventoryAmount</label> 
+        <a href="@Url.Action("OneClickBuy","Chunyan",new {PID=prod.pID})">Buy</a>
+    </div>
+
+}
+   
+//OneClickBuy.cshtml
+
+@{
+    ViewData["Title"] = "OneClickBuy";
+    Layout = "~/Views/Shared/_ChunyanLayout.cshtml";
+}
+@model Li_Chunyan.Models.Purchase
+
+<h2>OneClickBuy</h2>
+<div>
+    Hi @Model.PPerson.FirstName,
+    <br />
+    Thanks for buying @Model.PProduct.Name.
+    <br/> 
+    Your Credit Card will charged @Model.PProduct.Price.ToString("C") and it wil be shipped to @Model.PPerson.Address
+    <br />
+    Have a nice day!
+</div>
+
+//ChunyanCSS.css
+header {
+    height: 105px;
+    width: 1300px;
+    text-align: left;
+    border-radius: 10px;
+    
+}
+#headerText{
+    position:absolute;
+    top:40px;
+    left:10px;
+    font-size:2em;
+}
+#content {
+    
+    margin-top:5px;
+    float: right;
+    background-color: lightgray;
+    width: 1000px;
+    text-align: center;
+    height: 300px;
+    border-radius: 10px;
+}
+
+article {
+    margin-top:20px;
+}
+
+#alert {
+    color:red;
+}
+
+nav {
+    float:left;
+    background-color:orange;
+    width:220px;
+    height:300px;
+    border-radius:10px;
+    margin-top:5px;
+    padding-left:5px;
+}
+
+footer {
+    border-radius:10px;
+    text-align: center;
+    height:30px;
+    width:100%;
+    background :#4cff00;
+    background-color:skyblue;
+    clear:both;
+}
+
+ul {
+    margin-top:10px;
+    padding-left:10px;
+    padding-top:20px;
+    list-style-type:none;
+}
+
+/*input box*/
+input.roundCorners {
+    border:1px solid #ccc;
+    border-radius:5px;
+    box-shadow:2px 2px 3px #666;
+    display:inline-block;
+    width:150px;
+
+}
+
+.inputwrap label {
+    display:inline-block;
+    width:80px;
+    text-align:right;
+
+}
+
+.textshow {
+    display: inline-block;
+    width: 100px;
+    text-align: left;
+}
